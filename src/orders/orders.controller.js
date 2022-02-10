@@ -65,7 +65,13 @@ const create = (req, res, next) => {
 
 // TODO: destroy
 const destroy = (req, res, next) => {
-
+    const { orderId } = req.params;
+    const index = orders.findIndex(order => order.id === orderId);
+    if(res.locals.order.status !== "pending") {
+        return next({ status: 400, message: "An order cannot be deleted unless it is pending."});
+    }
+    orders.splice(index, 1);
+    res.sendStatus(204);
 };
 
 // List
@@ -92,7 +98,7 @@ const read = (req, res) => {
     res.json({ data: res.locals.order })
 };
 
-// TODO: update
+// Update & helper functions
 const update = (req, res, next) => {
     const { data: { deliverTo, mobileNumber, dishes, status } = {} } = req.body;
     const order = res.locals.order;
@@ -129,9 +135,18 @@ const validateId = (req, res, next) => {
 };
 const validateStatus = (req, res, next) => {
     const { data: { status } = {} } = req.body;
-    if( status === "pending" || status === "preparing" || status === "out-for-delivery" ) return next();
-    if( status === "delivered") next({ status: 400, message: "A delivered order cannot be changed."});
-    if(!status || status === "") next({ status: 400, message: "Order must have a status of pending, preparing, out-for-delivery, delivered."});
+    if( !status || status === "" || (status !== "pending" && status !== "preparing" && status !== "out-for-delivery")) {
+        return next({
+            status: 400,
+            message: "Order must have a status of pending, preparing, out-for-delivery, delivered",
+        });
+    } else if( status === "delivered" ){
+        return next({
+            status: 400,
+            message: "A delivered order cannot be changed."
+        });
+    }
+    next();
 };
 
 module.exports = {
@@ -143,7 +158,7 @@ module.exports = {
         dishesHaveQuantity,
         create
     ],
-    destroy: [destroy],
+    delete: [orderExists, destroy],
     list,
     read: [orderExists, read],
     update: [
