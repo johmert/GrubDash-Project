@@ -62,7 +62,6 @@ const create = (req, res, next) => {
 // Dish Exists middleware function
 const dishExists = (req, res, next) => {
     const { dishId } = req.params;
-    console.log(dishId);
     const foundDish = dishes.find(dish => dish.id === dishId);
     if(!!foundDish){
         res.locals.dish = foundDish;
