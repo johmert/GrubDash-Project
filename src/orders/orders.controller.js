@@ -73,14 +73,65 @@ const list = (req, res) => {
     res.json({ data: orders });
 };
 
-// TODO: read
-const read = (req, res) => {
+// Order Exists middleware function
+const orderExists = (req, res, next) => {
+    const { orderId } = req.params;
+    const foundOrder = orders.find(order => order.id === orderId);
+    if(!!foundOrder){
+        res.locals.order = foundOrder;
+        return next();
+    }
+    next({
+        status: 404,
+        message: `Order id not found ${orderId}`
+    });
+};
 
+// Read
+const read = (req, res) => {
+    res.json({ data: res.locals.order })
 };
 
 // TODO: update
 const update = (req, res, next) => {
+    const { data: { deliverTo, mobileNumber, dishes, status } = {} } = req.body;
+    const order = res.locals.order;
+    const origDeliverTo = order.deliverTo;
+    const origMobileNumber = order.mobileNumber;
+    const origDishes = order.dishes;
+    const origStatus = order.status;
+    if
+    (
+        origDeliverTo !== deliverTo ||
+        origMobileNumber !== mobileNumber ||
+        origDishes !== dishes ||
+        origStatus !== status
+    ) {
+        order.deliverTo = deliverTo;
+        order.mobileNumber = mobileNumber;
+        order.dishes = dishes;
+        order.status = status;
+    }
+    res.json({ data: order });
+};
 
+const validateId = (req, res, next) => {
+    const { data: { id } = {} } = req.body;
+    const { orderId } = req.params;
+    if(!id || id === orderId){
+        res.locals.orderId = orderId;
+        return next();
+    }
+    next({
+        status: 400,
+        message: `Order id does not match route id. Order: ${id}, Route: ${orderId}.`,
+    });
+};
+const validateStatus = (req, res, next) => {
+    const { data: { status } = {} } = req.body;
+    if( status === "pending" || status === "preparing" || status === "out-for-delivery" ) return next();
+    if( status === "delivered") next({ status: 400, message: "A delivered order cannot be changed."});
+    if(!status || status === "") next({ status: 400, message: "Order must have a status of pending, preparing, out-for-delivery, delivered."});
 };
 
 module.exports = {
@@ -94,6 +145,16 @@ module.exports = {
     ],
     destroy: [destroy],
     list,
-    read: [read],
-    update: [update],
+    read: [orderExists, read],
+    update: [
+        orderExists,
+        bodyHasDeliverTo,
+        bodyHasMobileNumber,
+        bodyHasDishes,
+        dishesPropertyIsValid,
+        dishesHaveQuantity,
+        validateId,
+        validateStatus,
+        update,
+    ],
 }
